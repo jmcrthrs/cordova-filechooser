@@ -28,7 +28,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class FileChooser extends CordovaPlugin  {
+public class FileChooser extends CordovaPlugin {
 
     private final String PLUGIN_NAME = "FileChooser";
     private static final String ACTION_OPEN = "open";
@@ -36,10 +36,16 @@ public class FileChooser extends CordovaPlugin  {
     static final String READ = Manifest.permission.READ_EXTERNAL_STORAGE;
     public static final int SEARCH_REQ_CODE = 0;
 
+    private String mimeType = "*/*"; // What type of media to retrieve
+    private boolean allowMultipleSelection = true; // Source type (needs to be saved for the permission handling)
+
     CallbackContext callback;
 
     @Override
-    public boolean execute(String action, CordovaArgs args, CallbackContext callbackContext) throws JSONException {
+    public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
+
+        this.mimeType = args.getString(0);
+        this.allowMultipleSelection = args.getBoolean(1);
 
         if (action.equals(ACTION_OPEN)) {
             chooseFile(callbackContext);
@@ -51,12 +57,9 @@ public class FileChooser extends CordovaPlugin  {
 
     public void chooseFile(CallbackContext callbackContext) {
 
-        if (cordova.hasPermission(READ))
-        {
+        if (cordova.hasPermission(READ)) {
             startFileChooser();
-        }
-        else
-        {
+        } else {
             getReadPermission(SEARCH_REQ_CODE);
         }
 
@@ -66,8 +69,7 @@ public class FileChooser extends CordovaPlugin  {
         callbackContext.sendPluginResult(pluginResult);
     }
 
-    protected void getReadPermission(int requestCode)
-    {
+    protected void getReadPermission(int requestCode) {
         cordova.requestPermission(this, requestCode, READ);
     }
 
@@ -75,7 +77,7 @@ public class FileChooser extends CordovaPlugin  {
     public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults) {
 
         if (requestCode == 0 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-          startFileChooser();
+            startFileChooser();
         } else {
             callback.error("Permission to read external storage denied");
         }
@@ -84,11 +86,10 @@ public class FileChooser extends CordovaPlugin  {
     private void startFileChooser() {
 
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-        intent.setType("*/*");
+        intent.setType(this.mimeType);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
-        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, this.allowMultipleSelection);
 
         Intent chooser = Intent.createChooser(intent, "Select File");
         cordova.startActivityForResult(this, chooser, PICK_FILE_REQUEST);
@@ -100,11 +101,11 @@ public class FileChooser extends CordovaPlugin  {
         if (requestCode == PICK_FILE_REQUEST && callback != null) {
 
             if (resultCode == Activity.RESULT_OK) {
-                
+
                 JSONObject intentJson = getIntentJson(intent);
 
-                    Log.w(PLUGIN_NAME, intentJson.toString());
-                    callback.success(intentJson);
+                Log.w(PLUGIN_NAME, intentJson.toString());
+                callback.success(intentJson);
 
             } else if (resultCode == Activity.RESULT_CANCELED) {
 
@@ -134,7 +135,7 @@ public class FileChooser extends CordovaPlugin  {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             clipData = intent.getClipData();
-            if(clipData != null) {
+            if (clipData != null) {
                 int clipItemCount = clipData.getItemCount();
                 items = new JSONObject[clipItemCount];
 
@@ -145,7 +146,7 @@ public class FileChooser extends CordovaPlugin  {
                     try {
                         items[i] = new JSONObject();
 
-                        if(item.getUri() != null) {
+                        if (item.getUri() != null) {
 
                             items[i].put("uri", item.getUri());
 
@@ -170,17 +171,17 @@ public class FileChooser extends CordovaPlugin  {
             intentJSON = new JSONObject();
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                if(items != null) {
+                if (items != null) {
                     intentJSON.put("items", new JSONArray(items));
                 }
             }
 
-            if(intent.getData() != null) {
+            if (intent.getData() != null) {
                 items = new JSONObject[1];
                 items[0] = new JSONObject();
                 items[0].put("uri", intent.getData());
 
-                if(intent.getData() != null) {
+                if (intent.getData() != null) {
                     String type = cR.getType(intent.getData());
                     String extension = mime.getExtensionFromMimeType(cR.getType(intent.getData()));
 
@@ -199,5 +200,5 @@ public class FileChooser extends CordovaPlugin  {
             return null;
         }
     }
-    
+
 }
